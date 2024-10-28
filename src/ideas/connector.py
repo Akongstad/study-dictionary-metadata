@@ -1,5 +1,5 @@
 """ Used as an example. Mostly promted from ChatGPT.
-This apporach depends on Python-to-DB interaction overhead. Implementation is need and we can use python for benchmark timing.
+This approach depends on Python-to-DB interaction overhead. Implementation is need and we can use python for benchmark timing.
 """
 
 import sqlite3
@@ -43,7 +43,7 @@ def main():
     create_base_table(sqlite_conn, base_table_name)
     create_base_table(pg_conn, base_table_name)
 
-    sqlite_time = benchmark_view_creation(sqlite_conn, base_table_name, "sqlite_view", 1000)
+    sqlite_time = benchmark_view_creation(sqlite_conn, base_table_name, "sqlite_view", 10000)
     pg_time = benchmark_view_creation(pg_conn, base_table_name, "pg_view", 1000)
 
     print(f"SQLite view creation time: {sqlite_time} seconds")

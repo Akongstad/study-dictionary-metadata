@@ -32,15 +32,13 @@ def generate_views(path_to_file, num_views: int) -> None:
 def main():
     datasystem = "sqlite"
     base_table_name = "base_table"
-    num_views = 1000
-
-    file_path = create_script(base_table_name, datasystem, 1000)
+    num_views = 100
+    file_path = create_script(base_table_name, datasystem, num_views)
     
     datasystem = "postgresql"
     base_table_name = "base_table"
-    num_views = 1000
-    
-    file_path = create_script(base_table_name, datasystem, 1000)
+    num_views = 100
+    file_path = create_script(base_table_name, datasystem, num_views)
     
     print("Done!")
     
