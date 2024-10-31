@@ -1,9 +1,9 @@
 """ Used as an example. Mostly promted from ChatGPT.
-This approach depends on Python-to-DB interaction overhead. Implementation is need and we can use python for benchmark timing.
+This approach depends on Python-to-DB interaction overhead. Implementation is neeat and we can use python for benchmark timing.
 """
 
 import sqlite3
-import psycopg
+import psycopg2
 
 import time
 
@@ -11,7 +11,7 @@ import time
 sqlite_conn = sqlite3.connect('test_database.sqlite')
 
 # PostgreSQL connection
-pg_conn = psycopg.connect(
+pg_conn = psycopg2.connect(
     dbname="your_db",
     user="your_user",
     password="your_password",
