@@ -60,7 +60,7 @@ def create_tables(conn,*, database_system: DatabaseSystem, num_objects: Granular
                     end_time,
                 )
                 recorder.record(*record)
-
+    print()
 
 
 def alter_table(conn, object_type: DatabaseObject):
