@@ -8,27 +8,31 @@ class DatabaseSystem(Enum):
     POSTGRES = "postgres"
     DUCKDB = "duckDB"
     SNOWFLAKE = "snowflake"
-    DATABRICKS = "databricks"
+    #DATABRICKS = "databricks"
 
 class DatabaseObject(Enum):
     # Enum for predefined target objects in experiments
     TABLE = "table"
     INDEX = "index"
     VIEW = "view"
+    FUNCTION = "function"
+    SEQUENCE = "sequence"
+    DATABVASE = "database"
 
 class Granularity(Enum):
     # Enum for predefined granularities in experiments
-    LOW = 1
-    MEDIUM = 100
-    HIGH = 1000
-    VERY_HIGH = 10000
-    YEAAAHBABY = 100000
+    XSMALL = 1
+    SMALL = 100
+    MEDIUM = 1000
+    LARGE = 10000
+    XLARGE = 100000
 
 class DDLCommand(Enum):
     # Enum for predefined DDL commands in experiments
     CREATE = "CREATE"
     DROP = "DROP"
     ALTER = "ALTER"
+    COMMENT = "COMMENT"
 
 class DataRecorder:
     def __init__(self, db_name='experiment_logs.db'):
@@ -80,11 +84,11 @@ if __name__ == "__main__":
 
     # Mock experiment data for each system using enums
     experiments = [
-        (DatabaseSystem.SQLITE, DDLCommand.CREATE, DatabaseObject.TABLE, Granularity.LOW, 0.235),
-        (DatabaseSystem.POSTGRES, DDLCommand.DROP, DatabaseObject.TABLE, Granularity.MEDIUM, 0.450),
-        (DatabaseSystem.DUCKDB, DDLCommand.ALTER, DatabaseObject.TABLE, Granularity.HIGH, 0.123),
-        (DatabaseSystem.SNOWFLAKE, DDLCommand.CREATE, DatabaseObject.INDEX, Granularity.VERY_HIGH, 0.678),
-        (DatabaseSystem.DATABRICKS, DDLCommand.DROP, DatabaseObject.INDEX, Granularity.YEAAAHBABY, 0.542)
+        (DatabaseSystem.SQLITE, DDLCommand.CREATE, DatabaseObject.TABLE, Granularity.XSMALL, 0.235),
+        (DatabaseSystem.POSTGRES, DDLCommand.DROP, DatabaseObject.TABLE, Granularity.SMALL, 0.450),
+        (DatabaseSystem.DUCKDB, DDLCommand.ALTER, DatabaseObject.TABLE, Granularity.MEDIUM, 0.123),
+        (DatabaseSystem.SNOWFLAKE, DDLCommand.CREATE, DatabaseObject.INDEX, Granularity.LARGE, 0.678),
+        (DatabaseSystem.DATABRICKS, DDLCommand.DROP, DatabaseObject.INDEX, Granularity.XLARGE, 0.542)
     ]
 
     # Record each experiment in the respective system table
