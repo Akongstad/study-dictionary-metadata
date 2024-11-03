@@ -47,6 +47,8 @@ class DDLCommand(Enum):
     DROP = "DROP"
     ALTER = "ALTER"
     COMMENT = "COMMENT"
+    SHOW = "SHOW"
+    INFORMATION_SCHEMA = "INFORMATION_SCHEMA"
 
 
 class DataRecorder:
