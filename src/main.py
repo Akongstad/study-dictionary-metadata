@@ -68,62 +68,17 @@ def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granula
     print()
 
 
-def alter_tables(conn, database_system: DatabaseSystem, granularity: Granularity):
-    """Example: alter table t_0 add column a. Point query"""
-    table_num = random.randint(0, granularity.value - 1)  # In case of prefetching
-    print()
-    for num_exp in range(3):
-        query = f"ALTER TABLE t_{table_num} ADD COLUMN altered_{num_exp} TEXT;"
-        start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
-        record = (
-            database_system,
-            DDLCommand.ALTER,
-            query,
-            DatabaseObject.TABLE,
-            granularity,
-            num_exp,
-            query_time.total_seconds(),
-            start_time,
-            end_time,
-        )
-        recorder.record(*record)
-        print()
-        _comment_object(
-            conn, database_system, DatabaseObject.TABLE, granularity, num_exp
-        )
-
-    print()
-
-
-def _comment_object(
-    conn,
-    database_system: DatabaseSystem,
-    database_object: DatabaseObject,
-    granularity: Granularity,
-    num_exp: int,
+def alter_tables(
+    conn, *, database_system: DatabaseSystem, granularity: Granularity, num_exp
 ):
-    """Example if comment supported: alter table t1 set comment = 'This table has been altered'\n
-    Example if comment not supported: alter table t1 rename to t1_altered"""
-
-    object_num = random.randint(0, granularity.value - 1)
-    if (
-        database_system == DatabaseSystem.SQLITE
-        and database_object.value == "table"
-    ):
-            # ALTER column name
-            query = f"alter table t_{object_num} RENAME COLUMN value TO value_altered;"
-    else:
-        query = f"alter {database_object.value[0].lower()}_{object_num} set comment 'This table has been altered';"
-    _current_task_loading(query)
-    start_time = datetime.datetime.now()
-    conn.execute(query)
-    conn.commit()
-    end_time = datetime.datetime.now()
-
-    query_time = end_time - start_time
+    """Example: alter table t_0 add column a. Point query"""
+    print()
+    table_num = random.randint(0, granularity.value - 1)  # In case of prefetching
+    query = f"ALTER TABLE t_{table_num} ADD COLUMN altered_{num_exp} TEXT;"
+    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
     record = (
         database_system,
-        DDLCommand.COMMENT,
+        DDLCommand.ALTER,
         query,
         DatabaseObject.TABLE,
         granularity,
@@ -133,25 +88,114 @@ def _comment_object(
         end_time,
     )
     recorder.record(*record)
+    print()
+    _comment_object(
+        conn,
+        database_system=database_system,
+        database_object=DatabaseObject.TABLE,
+        granularity=granularity,
+        num_exp=num_exp,
+    )
+    print()
+
+
+def _comment_object(
+    conn,
+    *,
+    database_system: DatabaseSystem,
+    database_object: DatabaseObject,
+    granularity: Granularity,
+    num_exp: int,
+):
+    """Example if comment supported: alter table t1 set comment = 'This table has been altered'\n
+    Example if comment not supported: alter table t1 rename to t1_altered"""
+
+    object_num = random.randint(0, granularity.value - 1)
+    if database_system == DatabaseSystem.SQLITE and database_object.value == "table":
+        # ALTER column name
+        query = f"alter table t_{object_num} RENAME COLUMN value TO value_altered;"
+    else:
+        query = f"alter {database_object.value[0].lower()}_{object_num} set comment 'This table has been altered';"
+    _current_task_loading(query)
+    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    record = (
+        database_system,
+        DDLCommand.COMMENT,
+        query,
+        database_object,
+        granularity,
+        num_exp,
+        query_time.total_seconds(),
+        start_time,
+        end_time,
+    )
+    recorder.record(*record)
 
     # Clean up. For sqlite
-    if (
-        database_system == DatabaseSystem.SQLITE
-        and database_object.value == "table"
-    ):
-        query = f"alter table t_{object_num} RENAME COLUMN value_altered TO value;"
-        conn.execute(query)
-        conn.commit()
+    if database_system == DatabaseSystem.SQLITE and database_object.value == "table":
+        with conn:
+            query = f"alter table t_{object_num} RENAME COLUMN value_altered TO value;"
+            conn.execute(query)
+            conn.commit()
 
 
-def show_objects(database_system: DatabaseSystem):
+def show_objects(
+    conn,
+    *,
+    database_system: DatabaseSystem,
+    database_object: DatabaseObject,
+    granularity: Granularity,
+    num_exp,
+):
     """Example: show tables"""
-    query = "show tables"
+    if database_system == DatabaseSystem.SQLITE:
+        query = f"""SELECT name FROM sqlite_master WHERE type = '{database_object.value}';"""
+    else:
+        query = "show tables"
+    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    record = (
+        database_system,
+        DDLCommand.SHOW,
+        query,
+        database_object,
+        granularity,
+        num_exp,
+        query_time.total_seconds(),
+        start_time,
+        end_time,
+    )
+    recorder.record(*record)
+    print()
 
 
-def select_objects():
+def select_objects(
+    conn,
+    *,
+    database_system: DatabaseSystem,
+    database_object: DatabaseObject,
+    granularity: Granularity,
+    num_exp,
+):
     """Example: select * from information_schema.tables"""
-    pass
+    if database_system == DatabaseSystem.SQLITE:
+        query = f"""SELECT * FROM sqlite_master WHERE type = '{database_object.value}';"""
+    else:
+        query = "select * from information_schema.tables"
+
+    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    record = (
+        database_system,
+        DDLCommand.INFORMATION_SCHEMA,
+        query,
+        database_object,
+        granularity,
+        num_exp,
+        query_time.total_seconds(),
+        start_time,
+        end_time,
+    )
+    recorder.record(*record)
+    print()
 
 
 def drop_schema(database_system: DatabaseSystem):
@@ -170,15 +214,38 @@ def experiment_1(conn, database_system: DatabaseSystem):
         logging.info("Starting experiment 1!")
 
         for gran in Granularity:
-            logging.info(
-                f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: started"
-            )
-            create_tables(conn, database_system=database_system, num_objects=gran)
-            alter_tables(conn, database_system, gran)
-
             drop_schema(database_system)
             if database_system == DatabaseSystem.SQLITE:
                 conn = sqlite3.connect("sqlite.db")
+            logging.info(
+                f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: started"
+            )
+
+            create_tables(conn, database_system=database_system, num_objects=gran)
+            for num_exp in range(3):
+                alter_tables(
+                    conn,
+                    database_system=database_system,
+                    granularity=gran,
+                    num_exp=num_exp,
+                )
+                show_objects(
+                    conn,
+                    database_system=database_system,
+                    database_object=DatabaseObject.TABLE,
+                    granularity=gran,
+                    num_exp=num_exp,
+                )
+                select_objects(
+                    conn,
+                    database_system=database_system,
+                    database_object=DatabaseObject.TABLE,
+                    granularity=gran,
+                    num_exp=num_exp,
+                )
+            logging.info(
+                f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: SUCCESSFUL"
+            )
     finally:
         logging.info("Experiment 1 finished.")
         drop_schema(database_system)
