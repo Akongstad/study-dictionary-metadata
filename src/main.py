@@ -4,6 +4,14 @@ Main experiment file. Run experiment for all data systems (Sqlite, Postgresql, d
 
 import random
 import sqlite3
+import duckdb
+import datetime
+import os
+import logging
+import sys
+import psycopg2
+import configs
+
 from experiment_logger.data_recorder import (
     DataRecorder,
     DatabaseSystem,
@@ -11,28 +19,47 @@ from experiment_logger.data_recorder import (
     Granularity,
     DDLCommand,
 )
-import datetime
-import os
-import logging
-import sys
 
 recorder = DataRecorder()
 # Init connections
 # SQLite connection
 sqlite_conn = sqlite3.connect("sqlite.db")
+duckdb_conn = duckdb.connect("duckdb.db")
+psql_conn = psycopg2.connect(**configs.postgres_conf)
+
 # PostgreSQL connection
 
 
-def _execute_timed_query(conn, query: str):
+def _execute_timed_query(conn, database_system: DatabaseSystem, query: str):
     """Execute query and log the query time"""
     _current_task_loading(query=query)
-    with conn:
+    if database_system == DatabaseSystem.SQLITE:
+        with conn:
+            start_time = datetime.datetime.now()
+            conn.execute(query)
+            conn.commit()
+            end_time = datetime.datetime.now()
+
+            query_time = end_time - start_time
+
+    if database_system == DatabaseSystem.DUCKDB:
         start_time = datetime.datetime.now()
         conn.execute(query)
-        conn.commit()
         end_time = datetime.datetime.now()
 
         query_time = end_time - start_time
+        
+    if database_system == DatabaseSystem.POSTGRES:
+        with conn:
+            with conn.cursor() as curs:
+                start_time = datetime.datetime.now()
+                curs.execute(query)
+                end_time = datetime.datetime.now()
+        
+                query_time = end_time - start_time
+            
+        
+
     return start_time, end_time, query_time
 
 
@@ -49,10 +76,20 @@ def _current_task_loading(query: str):
 def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granularity):
     """Example: Create 1000 tables"""
     print()
+    
+    if database_system == DatabaseSystem.DUCKDB:
+        init_query = """CREATE SCHEMA experiment;
+                        use experiment;"""
+        _ = _execute_timed_query(conn=conn, query=init_query, database_system=database_system)
+
+        
+    
     for i in range(num_objects.value):
         query = f"CREATE TABLE t_{i} (id INTEGER PRIMARY KEY, value TEXT);"
 
-        start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+        start_time, end_time, query_time = _execute_timed_query(
+            conn=conn, query=query, database_system=database_system
+        )
         record = (
             database_system,
             DDLCommand.CREATE,
@@ -75,7 +112,9 @@ def alter_tables(
     print()
     table_num = random.randint(0, granularity.value - 1)  # In case of prefetching
     query = f"ALTER TABLE t_{table_num} ADD COLUMN altered_{num_exp} TEXT;"
-    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    start_time, end_time, query_time = _execute_timed_query(
+        conn=conn, query=query, database_system=database_system
+    )
     record = (
         database_system,
         DDLCommand.ALTER,
@@ -113,11 +152,14 @@ def _comment_object(
     object_num = random.randint(0, granularity.value - 1)
     if database_system == DatabaseSystem.SQLITE and database_object.value == "table":
         # ALTER column name
-        query = f"alter table t_{object_num} RENAME COLUMN value TO value_altered;"
+        query = f"alter {database_object.value} t_{object_num} RENAME COLUMN value TO value_altered;"
     else:
-        query = f"alter {database_object.value[0].lower()}_{object_num} set comment 'This table has been altered';"
+        query = f"comment on {database_object.value} t_{object_num} is 'This {database_object.value} has been altered';"
+
     _current_task_loading(query)
-    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    start_time, end_time, query_time = _execute_timed_query(
+        conn=conn, query=query, database_system=database_system
+    )
     record = (
         database_system,
         DDLCommand.COMMENT,
@@ -150,9 +192,20 @@ def show_objects(
     """Example: show tables"""
     if database_system == DatabaseSystem.SQLITE:
         query = f"""SELECT name FROM sqlite_master WHERE type = '{database_object.value}';"""
+    if database_system == DatabaseSystem.POSTGRES:
+        query = f"""
+        SELECT n.nspname AS schema_name,
+       c.relname AS table_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = 'r'  -- 'r' indicates a regular table
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema'); -- Exclude system schemas
+        """
     else:
         query = "show tables"
-    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    start_time, end_time, query_time = _execute_timed_query(
+        conn=conn, query=query, database_system=database_system
+    )
     record = (
         database_system,
         DDLCommand.SHOW,
@@ -178,11 +231,15 @@ def select_objects(
 ):
     """Example: select * from information_schema.tables"""
     if database_system == DatabaseSystem.SQLITE:
-        query = f"""SELECT * FROM sqlite_master WHERE type = '{database_object.value}';"""
+        query = (
+            f"""SELECT * FROM sqlite_master WHERE type = '{database_object.value}';"""
+        )
     else:
-        query = "select * from information_schema.tables"
+        query = f"select * from information_schema.{database_object.value}s"
 
-    start_time, end_time, query_time = _execute_timed_query(conn=conn, query=query)
+    start_time, end_time, query_time = _execute_timed_query(
+        conn=conn, query=query, database_system=database_system
+    )
     record = (
         database_system,
         DDLCommand.INFORMATION_SCHEMA,
@@ -198,15 +255,25 @@ def select_objects(
     print()
 
 
-def drop_schema(database_system: DatabaseSystem):
+def drop_schema(conn, database_system: DatabaseSystem):
     """Example: drop schema/db"""
     # switch case:
-    if database_system == DatabaseSystem.SQLITE:
-        if os.path.exists("sqlite.db"):
-            os.remove("sqlite.db")
-            logging.info(f"Dropped: {database_system}")
-    else:
-        logging.error("Database system not dropped")
+    try:
+        if database_system == DatabaseSystem.SQLITE:
+            if os.path.exists("sqlite.db"):
+                os.remove("sqlite.db")
+                logging.info(f"Dropped: {database_system}")
+        if database_system == DatabaseSystem.DUCKDB:
+            drop_query = "DROP SCHEMA experiment CASCADE;"
+            _= _execute_timed_query(conn=conn, query=drop_query, database_system=database_system)
+        if database_system == DatabaseSystem.POSTGRES:
+            drop_query = """DROP SCHEMA public CASCADE;
+                            CREATE SCHEMA public;"""
+            _= _execute_timed_query(conn=conn, query=drop_query, database_system=database_system)
+        else:
+            logging.error("Database system not dropped")
+    except Exception as e:
+        logging.error(f"Drop schema failed: {e}")
 
 
 def experiment_1(conn, database_system: DatabaseSystem):
@@ -214,9 +281,12 @@ def experiment_1(conn, database_system: DatabaseSystem):
         logging.info("Starting experiment 1!")
 
         for gran in Granularity:
-            drop_schema(database_system)
             if database_system == DatabaseSystem.SQLITE:
                 conn = sqlite3.connect("sqlite.db")
+            if database_system == DatabaseSystem.DUCKDB:
+                conn = duckdb.connect("duckdb.db")
+            if database_system == DatabaseSystem.POSTGRES:
+                conn = psycopg2.connect(**configs.postgres_conf)
             logging.info(
                 f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: started"
             )
@@ -246,9 +316,12 @@ def experiment_1(conn, database_system: DatabaseSystem):
             logging.info(
                 f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: SUCCESSFUL"
             )
+            drop_schema(conn, database_system)
+    except Exception as e:
+        logging.error(f"Experiment 1 failed: {e}")
+        drop_schema(conn, database_system)
     finally:
         logging.info("Experiment 1 finished.")
-        drop_schema(database_system)
         recorder.close()
 
 
@@ -256,8 +329,18 @@ def main():
     logging.basicConfig(
         format="%(levelname)s%(funcName)20s():%(message)s", level=logging.INFO
     )
-    experiment_1(sqlite_conn, DatabaseSystem.SQLITE)
-    logging.info("Done!")
+    try:
+        # experiment_1(sqlite_conn, DatabaseSystem.SQLITE)
+        #experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
+
+        drop_schema(psql_conn, DatabaseSystem.POSTGRES)
+        experiment_1(psql_conn, DatabaseSystem.POSTGRES)
+    
+            
+        logging.info("Done!")
+    finally:
+        recorder.close()
+        psql_conn.close()
 
 
 if __name__ == "__main__":
