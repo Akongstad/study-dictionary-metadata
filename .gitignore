@@ -53,3 +53,5 @@ docs/_build/
 .vscode
 
 *configs.py
+
+.config.yaml
