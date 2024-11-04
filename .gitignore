@@ -55,3 +55,5 @@ docs/_build/
 *configs.py
 
 .config.yaml
+
+/deprecated_data

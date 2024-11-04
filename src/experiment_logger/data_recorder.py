@@ -5,7 +5,6 @@ Data recorder. Handle recording of results and experiment metadata.
 import sqlite3
 from datetime import datetime
 from enum import Enum
-import time
 
 
 class DatabaseSystem(Enum):

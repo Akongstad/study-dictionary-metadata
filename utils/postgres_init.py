@@ -65,6 +65,7 @@ try:
         "-e", f"POSTGRES_PASSWORD={db_password}",
         "-e", f"POSTGRES_DB={db_name}",
         "-p", f"{port}:5432",
+        "--shm-size=512m",
         DOCKER_IMAGE
     ], check=True)
     print("Docker container started successfully.")
@@ -74,12 +75,13 @@ except subprocess.CalledProcessError as e:
     
 # Wait for the db to accept connections
 time.sleep(1)
+
 # Set max_locks_per_transaction
 try:
     subprocess.run([
-        "docker", "exec", "-it", "postgres_container",  # Change container name if needed
+        "docker", "exec", "-it", "postgres_container", 
         "psql", "-U", db_user, "-d", db_name, "-c",
-        "ALTER SYSTEM SET max_locks_per_transaction = 1024;",  # Change value if needed
+        "ALTER SYSTEM SET max_locks_per_transaction = 8192;",  # Change value if needed
     ], check=True)
     print("max_locks_per_transaction set successfully.")
 except subprocess.CalledProcessError as e:

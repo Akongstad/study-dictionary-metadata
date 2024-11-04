@@ -216,7 +216,7 @@ def show_objects(
     """Example: show tables"""
     if database_system == DatabaseSystem.SQLITE:
         query = f"""SELECT name FROM sqlite_master WHERE type = '{database_object.value}';"""
-    if database_system == DatabaseSystem.POSTGRES:
+    elif database_system == DatabaseSystem.POSTGRES:
         query = f"""
         SELECT n.nspname AS schema_name,
        c.relname AS table_name
@@ -317,12 +317,12 @@ def experiment_1(conn, database_system: DatabaseSystem):
         for gran in Granularity:
             if database_system == DatabaseSystem.SQLITE:
                 conn = sqlite3.connect("sqlite.db")
-            if database_system == DatabaseSystem.DUCKDB:
-                conn = duckdb.connect("duckdb.db")
-            if database_system == DatabaseSystem.POSTGRES:
-                conn = psycopg2.connect(**configs.postgres_conf)
-            if database_system == DatabaseSystem.SNOWFLAKE:
-                conn = connect_snowflake()
+            # elif database_system == DatabaseSystem.DUCKDB:
+            #     conn = duckdb.connect("duckdb.db")
+            # elif database_system == DatabaseSystem.POSTGRES:
+            #     conn = psycopg2.connect(**configs.postgres_conf)
+            # elif database_system == DatabaseSystem.SNOWFLAKE:
+            #     conn = connect_snowflake()
             logging.info(
                 f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: started"
             )
@@ -374,13 +374,13 @@ def main():
         # drop_schema(duckdb_conn, DatabaseSystem.DUCKDB)
         # experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
 
-        # psql_conn = connect_postgres()
-        # drop_schema(psql_conn, DatabaseSystem.POSTGRES)
-        # experiment_1(psql_conn, DatabaseSystem.POSTGRES)
+        psql_conn = connect_postgres()
+        drop_schema(psql_conn, DatabaseSystem.POSTGRES)
+        experiment_1(psql_conn, DatabaseSystem.POSTGRES)
 
-        snowflake_conn = connect_snowflake()
-        drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
-        experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        # snowflake_conn = connect_snowflake()
+        # drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        # experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
 
         logging.info("Done!")
     finally:
@@ -388,8 +388,8 @@ def main():
         recorder.close()
         # sqlit_conn.close()
         # duckdb_conn.close()
-        # psql_conn.close()
-        snowflake_conn.close()
+        psql_conn.close()
+        # snowflake_conn.close()
 
 
 if __name__ == "__main__":
