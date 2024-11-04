@@ -1,5 +1,3 @@
-
-
 import time
 import yaml
 import subprocess
@@ -7,7 +5,7 @@ import sys
 
 # Constants
 CONFIG_FILE = ".config.yaml"
-DOCKER_IMAGE = "postgres:latest"  # Specify the PostgreSQL image tag
+DOCKER_IMAGE = "postgres:latest"
 
 # Load the YAML configuration
 try:

@@ -11,6 +11,8 @@ import logging
 import sys
 import psycopg2
 import configs
+import snowflake.connector
+import yaml
 
 from experiment_logger.data_recorder import (
     DataRecorder,
@@ -21,16 +23,28 @@ from experiment_logger.data_recorder import (
 )
 
 recorder = DataRecorder()
+
+
 # Init connections
-# SQLite connection
-sqlite_conn = sqlite3.connect("sqlite.db")
-duckdb_conn = duckdb.connect("duckdb.db")
-psql_conn = psycopg2.connect(**configs.postgres_conf)
-
-# PostgreSQL connection
+def connect_sqlite() -> sqlite3.Connection:
+    return sqlite3.connect("sqlite.db")
 
 
-def _execute_timed_query(conn, database_system: DatabaseSystem, query: str):
+def connect_duckdb() -> duckdb.DuckDBPyConnection:
+    return duckdb.connect("duckdb.db")
+
+
+def connect_postgres() -> psycopg2.extensions.connection:
+    postgres_conf = yaml.safe_load(open(".config.yaml"))["postgres_conf"]
+    return psycopg2.connect(**configs.postgres_conf)
+
+
+def connect_snowflake() -> snowflake.connector.connection.SnowflakeConnection:
+    snowflake_conf = yaml.safe_load(open(".config.yaml"))["snowflake_conf"]
+    return snowflake.connector.connect(**snowflake_conf)
+
+
+def _execute_timed_query(conn, database_system: DatabaseSystem, query: str) -> tuple[datetime.datetime, datetime.datetime, datetime.timedelta]:
     """Execute query and log the query time"""
     _current_task_loading(query=query)
     if database_system == DatabaseSystem.SQLITE:
@@ -42,23 +56,29 @@ def _execute_timed_query(conn, database_system: DatabaseSystem, query: str):
 
             query_time = end_time - start_time
 
-    if database_system == DatabaseSystem.DUCKDB:
+    elif database_system == DatabaseSystem.DUCKDB:
         start_time = datetime.datetime.now()
         conn.execute(query)
         end_time = datetime.datetime.now()
 
         query_time = end_time - start_time
-        
-    if database_system == DatabaseSystem.POSTGRES:
+
+    elif database_system == DatabaseSystem.POSTGRES:
         with conn:
             with conn.cursor() as curs:
                 start_time = datetime.datetime.now()
                 curs.execute(query)
                 end_time = datetime.datetime.now()
-        
+
                 query_time = end_time - start_time
-            
-        
+
+    elif database_system == DatabaseSystem.SNOWFLAKE:
+        with conn.cursor() as curs:
+            start_time = datetime.datetime.now()
+            curs.execute(query)
+            end_time = datetime.datetime.now()
+
+            query_time = end_time -start_time
 
     return start_time, end_time, query_time
 
@@ -76,14 +96,18 @@ def _current_task_loading(query: str):
 def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granularity):
     """Example: Create 1000 tables"""
     print()
-    
+
     if database_system == DatabaseSystem.DUCKDB:
         init_query = """CREATE SCHEMA experiment;
                         use experiment;"""
-        _ = _execute_timed_query(conn=conn, query=init_query, database_system=database_system)
+        _ = _execute_timed_query(
+            conn=conn, query=init_query, database_system=database_system
+        )
+    if database_system == DatabaseSystem.SNOWFLAKE:
+        with conn.cursor() as curs:
+            curs.execute("CREATE SCHEMA metadata_experiment")
+            curs.execute("use schema metadata_experiment;")
 
-        
-    
     for i in range(num_objects.value):
         query = f"CREATE TABLE t_{i} (id INTEGER PRIMARY KEY, value TEXT);"
 
@@ -265,11 +289,21 @@ def drop_schema(conn, database_system: DatabaseSystem):
                 logging.info(f"Dropped: {database_system}")
         if database_system == DatabaseSystem.DUCKDB:
             drop_query = "DROP SCHEMA experiment CASCADE;"
-            _= _execute_timed_query(conn=conn, query=drop_query, database_system=database_system)
+            _ = _execute_timed_query(
+                conn=conn, query=drop_query, database_system=database_system
+            )
         if database_system == DatabaseSystem.POSTGRES:
             drop_query = """DROP SCHEMA public CASCADE;
                             CREATE SCHEMA public;"""
-            _= _execute_timed_query(conn=conn, query=drop_query, database_system=database_system)
+            _ = _execute_timed_query(
+                conn=conn, query=drop_query, database_system=database_system
+            )
+        if database_system == DatabaseSystem.SNOWFLAKE:
+            with conn:
+                with conn.cursor() as curs:
+                    curs.execute("use schema public")
+                    curs.execute("DROP SCHEMA if exists metadata_experiment CASCADE;")
+
         else:
             logging.error("Database system not dropped")
     except Exception as e:
@@ -287,6 +321,8 @@ def experiment_1(conn, database_system: DatabaseSystem):
                 conn = duckdb.connect("duckdb.db")
             if database_system == DatabaseSystem.POSTGRES:
                 conn = psycopg2.connect(**configs.postgres_conf)
+            if database_system == DatabaseSystem.SNOWFLAKE:
+                conn = connect_snowflake()
             logging.info(
                 f"Experiment: 1 | Object: {DatabaseObject.TABLE} | Granularity: {gran.value} | Status: started"
             )
@@ -330,17 +366,30 @@ def main():
         format="%(levelname)s%(funcName)20s():%(message)s", level=logging.INFO
     )
     try:
-        # experiment_1(sqlite_conn, DatabaseSystem.SQLITE)
-        #experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
+        # sqlit_conn = connect_sqlite()
+        # drop_schema(connect_sqlite(), DatabaseSystem.SQLITE)
+        # experiment_1(sqlit_conn, DatabaseSystem.SQLITE)
 
-        drop_schema(psql_conn, DatabaseSystem.POSTGRES)
-        experiment_1(psql_conn, DatabaseSystem.POSTGRES)
-    
-            
+        # duckdb_conn = connect_duckdb()
+        # drop_schema(duckdb_conn, DatabaseSystem.DUCKDB)
+        # experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
+
+        # psql_conn = connect_postgres()
+        # drop_schema(psql_conn, DatabaseSystem.POSTGRES)
+        # experiment_1(psql_conn, DatabaseSystem.POSTGRES)
+
+        snowflake_conn = connect_snowflake()
+        drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+
         logging.info("Done!")
     finally:
+        logging.info("Closing all connections")
         recorder.close()
-        psql_conn.close()
+        # sqlit_conn.close()
+        # duckdb_conn.close()
+        # psql_conn.close()
+        snowflake_conn.close()
 
 
 if __name__ == "__main__":
