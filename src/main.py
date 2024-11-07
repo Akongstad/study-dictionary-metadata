@@ -43,6 +43,14 @@ def connect_snowflake() -> snowflake.connector.connection.SnowflakeConnection:
     snowflake_conf = yaml.safe_load(open(".config.yaml"))["snowflake_conf"]
     return snowflake.connector.connect(**snowflake_conf)
 
+def _get_snowflake_ping():
+    """Ping snowflake connection"""
+    with connect_snowflake() as conn:
+        with conn.cursor() as curs:
+            curs.execute("SELECT SYSTEM$PING();")
+            result = curs.fetchone()
+            print(result)
+
 
 def _execute_timed_query(conn, database_system: DatabaseSystem, query: str) -> tuple[datetime.datetime, datetime.datetime, datetime.timedelta]:
     """Execute query and log the query time"""
@@ -105,7 +113,7 @@ def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granula
         )
     if database_system == DatabaseSystem.SNOWFLAKE:
         with conn.cursor() as curs:
-            curs.execute("CREATE SCHEMA metadata_experiment")
+            curs.execute("CREATE or replace SCHEMA metadata_experiment")
             curs.execute("use schema metadata_experiment;")
 
     for i in range(num_objects.value):
@@ -225,6 +233,8 @@ def show_objects(
         WHERE c.relkind = 'r'  -- 'r' indicates a regular table
         AND n.nspname NOT IN ('pg_catalog', 'information_schema'); -- Exclude system schemas
         """
+    elif database_system == DatabaseSystem.SNOWFLAKE:
+        query = "show tables limit 10000"
     else:
         query = "show tables"
     start_time, end_time, query_time = _execute_timed_query(
@@ -299,10 +309,9 @@ def drop_schema(conn, database_system: DatabaseSystem):
                 conn=conn, query=drop_query, database_system=database_system
             )
         if database_system == DatabaseSystem.SNOWFLAKE:
-            with conn:
-                with conn.cursor() as curs:
-                    curs.execute("use schema public")
-                    curs.execute("DROP SCHEMA if exists metadata_experiment CASCADE;")
+            with conn.cursor() as curs:
+                curs.execute("use schema public")
+                curs.execute("DROP SCHEMA if exists metadata_experiment CASCADE;")
 
         else:
             logging.error("Database system not dropped")
@@ -362,9 +371,9 @@ def experiment_1(conn, database_system: DatabaseSystem):
 
 
 def main():
-    logging.basicConfig(
-        format="%(levelname)s%(funcName)20s():%(message)s", level=logging.INFO
-    )
+    # logging.basicConfig(
+    #     format="%(levelname)s%(funcName)20s():%(message)s", level=logging.INFO
+    # )
     try:
         # sqlit_conn = connect_sqlite()
         # drop_schema(connect_sqlite(), DatabaseSystem.SQLITE)
@@ -374,13 +383,14 @@ def main():
         # drop_schema(duckdb_conn, DatabaseSystem.DUCKDB)
         # experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
 
-        psql_conn = connect_postgres()
-        drop_schema(psql_conn, DatabaseSystem.POSTGRES)
-        experiment_1(psql_conn, DatabaseSystem.POSTGRES)
+        # psql_conn = connect_postgres()
+        # drop_schema(psql_conn, DatabaseSystem.POSTGRES)
+        # experiment_1(psql_conn, DatabaseSystem.POSTGRES)
 
-        # snowflake_conn = connect_snowflake()
-        # drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
-        # experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        snowflake_conn = connect_snowflake()
+        drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        # show_objects(snowflake_conn, database_system=DatabaseSystem.SNOWFLAKE, database_object=DatabaseObject.TABLE, granularity=Granularity.s_100000, num_exp=2)
 
         logging.info("Done!")
     finally:
@@ -388,8 +398,8 @@ def main():
         recorder.close()
         # sqlit_conn.close()
         # duckdb_conn.close()
-        psql_conn.close()
-        # snowflake_conn.close()
+        # psql_conn.close()
+        snowflake_conn.close()
 
 
 if __name__ == "__main__":
