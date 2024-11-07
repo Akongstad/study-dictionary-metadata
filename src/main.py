@@ -44,12 +44,14 @@ def connect_snowflake() -> snowflake.connector.connection.SnowflakeConnection:
     return snowflake.connector.connect(**snowflake_conf)
 
 def _get_snowflake_ping():
-    """Ping snowflake connection"""
+    """Ping snowflake connection 10 time for average latency"""
+    
     with connect_snowflake() as conn:
-        with conn.cursor() as curs:
-            curs.execute("SELECT SYSTEM$PING();")
-            result = curs.fetchone()
-            print(result)
+        total = 0
+        for i in range(10):
+            _, _, time = _execute_timed_query(conn, DatabaseSystem.SNOWFLAKE, "SELECT 1;")
+            total+=time.total_seconds()
+        return total/10
 
 
 def _execute_timed_query(conn, database_system: DatabaseSystem, query: str) -> tuple[datetime.datetime, datetime.datetime, datetime.timedelta]:
@@ -390,6 +392,7 @@ def main():
         snowflake_conn = connect_snowflake()
         drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
         experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        #print(_get_snowflake_ping())
         # show_objects(snowflake_conn, database_system=DatabaseSystem.SNOWFLAKE, database_object=DatabaseObject.TABLE, granularity=Granularity.s_100000, num_exp=2)
 
         logging.info("Done!")
