@@ -103,7 +103,7 @@ def _current_task_loading(query: str):
     sys.stdout.flush()  # Force output to update in terminal
 
 
-def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granularity):
+def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granularity, logging = True):
     """Example: Create 1000 tables"""
     print()
 
@@ -124,18 +124,19 @@ def create_tables(conn, *, database_system: DatabaseSystem, num_objects: Granula
         start_time, end_time, query_time = _execute_timed_query(
             conn=conn, query=query, database_system=database_system
         )
-        record = (
-            database_system,
-            DDLCommand.CREATE,
-            f"CREATE TABLE t_{i} (id INTEGER PRIMARY KEY, value TEXT);",
-            DatabaseObject.TABLE,
-            num_objects,
-            0,
-            query_time.total_seconds(),
-            start_time,
-            end_time,
-        )
-        recorder.record(*record)
+        if logging:
+            record = (
+                database_system,
+                DDLCommand.CREATE,
+                f"CREATE TABLE t_{i} (id INTEGER PRIMARY KEY, value TEXT);",
+                DatabaseObject.TABLE,
+                num_objects,
+                0,
+                query_time.total_seconds(),
+                start_time,
+                end_time,
+            )
+            recorder.record(*record)
     print()
 
 
@@ -380,19 +381,21 @@ def main():
         # sqlit_conn = connect_sqlite()
         # drop_schema(connect_sqlite(), DatabaseSystem.SQLITE)
         # experiment_1(sqlit_conn, DatabaseSystem.SQLITE)
+        # create_tables(sqlit_conn, database_system=DatabaseSystem.SQLITE, num_objects=Granularity.s_100000, logging=False)
 
         # duckdb_conn = connect_duckdb()
         # drop_schema(duckdb_conn, DatabaseSystem.DUCKDB)
         # experiment_1(duckdb_conn, DatabaseSystem.DUCKDB)
+        # create_tables(duckdb_conn, database_system=DatabaseSystem.DUCKDB, num_objects=Granularity.s_100000, logging=False) 
 
         # psql_conn = connect_postgres()
         # drop_schema(psql_conn, DatabaseSystem.POSTGRES)
         # experiment_1(psql_conn, DatabaseSystem.POSTGRES)
 
-        snowflake_conn = connect_snowflake()
-        drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
-        experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
-        #print(_get_snowflake_ping())
+        # snowflake_conn = connect_snowflake()
+        # drop_schema(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        # experiment_1(snowflake_conn, DatabaseSystem.SNOWFLAKE)
+        # print(_get_snowflake_ping())
         # show_objects(snowflake_conn, database_system=DatabaseSystem.SNOWFLAKE, database_object=DatabaseObject.TABLE, granularity=Granularity.s_100000, num_exp=2)
 
         logging.info("Done!")
@@ -402,7 +405,7 @@ def main():
         # sqlit_conn.close()
         # duckdb_conn.close()
         # psql_conn.close()
-        snowflake_conn.close()
+        # snowflake_conn.close()
 
 
 if __name__ == "__main__":

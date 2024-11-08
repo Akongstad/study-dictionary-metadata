@@ -5,6 +5,7 @@ Repository for the benchmark code used to test performance of functions on metad
 #### Postrgres Docker setup
 
 ```bash
+# Manual
 docker pull postgres
 
 docker run --name postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=research-project -e POSTGRES_DB=postgres -p 5432:5432 -d postgres
@@ -12,9 +13,14 @@ docker run --name postgres-container -e POSTGRES_USER=user -e POSTGRES_PASSWORD=
 docker exec -it d267 psql -U user -d postgres -c "SHOW max_locks_per_transaction;"
 docker exec -it d267 psql -U user -d postgres -c "ALTER SYSTEM SET max_locks_per_transaction = 1024;"
 docker restart postgres_container
+
+# Script:
+python utils/postgres_init.py
 ```
 
-##### Errors
+#### Errors and observations
+
+#### Postgres
 
 ```txt
 out of shared memory
@@ -28,4 +34,21 @@ running: select * from information_schema.tablesERROR        experiment_1():Expe
 CONTEXT:  parallel worker
 ```
 
+Snapshot
+
 ![alt text](<assets/Screenshot 2024-11-03 at 23.30.17.png>)
+
+---
+
+#### Snowflake
+
+```txt
+--running: show tablesERROR:root:Experiment 1 failed: 090153 (22000): The result set size exceeded the max number of rows(10000) supported for SHOW statements. Use LIMIT option to limit result set to a smaller number.
+(.venv) (base)
+```
+
+#### Duckdb
+
+```sql
+EXPORT DATABASE 'exports/table_sample.parquet' (FORMAT 'PARQUET');
+```
