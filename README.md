@@ -49,6 +49,9 @@ Snapshot
 
 #### Duckdb
 
+Exporting 100000 tables to parquet hangs and  causes duckdb to use 50 gb ram.
+It is very easy to export data, but hard to export objects. This is the same for the aother platforms.
+
 ```sql
 EXPORT DATABASE 'exports/table_sample.parquet' (FORMAT 'PARQUET');
 ```
