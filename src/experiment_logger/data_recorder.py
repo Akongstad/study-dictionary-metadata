@@ -1,5 +1,5 @@
 """
-Data recorder. Handle recording of results and experiment metadata. 
+Data recorder. Handle recording of results and experiment metadata.
 """
 
 import sqlite3
@@ -100,8 +100,6 @@ class DataRecorder:
         )
         with self.conn:
             self.conn.execute(insert_query, record)
-
-
 
     def close(self):
         self.conn.close()

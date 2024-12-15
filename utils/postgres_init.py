@@ -1,7 +1,10 @@
-import time
-import yaml
+# Initialization script for the postgres docker instance that includes configuration of max_locks_per_transaction
+
 import subprocess
 import sys
+import time
+
+import yaml
 
 # Constants
 CONFIG_FILE = ".config.yaml"
@@ -35,8 +38,7 @@ if not all([db_user, db_password, db_host, db_name, port]):
 # Check if the Docker image exists locally
 try:
     result = subprocess.run(
-        ["docker", "images", "-q", DOCKER_IMAGE],
-        capture_output=True, text=True, check=True
+        ["docker", "images", "-q", DOCKER_IMAGE], capture_output=True, text=True, check=True
     )
     if not result.stdout.strip():  # No output means the image doesn't exist
         print(f"Image '{DOCKER_IMAGE}' not found locally. Pulling from Docker Hub...")
@@ -58,31 +60,52 @@ except subprocess.CalledProcessError:
 
 # Run the Docker container with environment variables
 try:
-    subprocess.run([
-        "docker", "run", "-d",
-        "--name", "postgres_container",  # Change container name if needed
-        "-e", f"POSTGRES_USER={db_user}",
-        "-e", f"POSTGRES_PASSWORD={db_password}",
-        "-e", f"POSTGRES_DB={db_name}",
-        "-p", f"{port}:5432",
-        "--shm-size=512m",
-        DOCKER_IMAGE
-    ], check=True)
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "-d",
+            "--name",
+            "postgres_container",  # Change container name if needed
+            "-e",
+            f"POSTGRES_USER={db_user}",
+            "-e",
+            f"POSTGRES_PASSWORD={db_password}",
+            "-e",
+            f"POSTGRES_DB={db_name}",
+            "-p",
+            f"{port}:5432",
+            "--shm-size=512m",
+            DOCKER_IMAGE,
+        ],
+        check=True,
+    )
     print("Docker container started successfully.")
 except subprocess.CalledProcessError as e:
     print(f"Error starting Docker container: {e}")
     sys.exit(1)
-    
+
 # Wait for the db to accept connections
 time.sleep(1)
 
 # Set max_locks_per_transaction
 try:
-    subprocess.run([
-        "docker", "exec", "-it", "postgres_container", 
-        "psql", "-U", db_user, "-d", db_name, "-c",
-        "ALTER SYSTEM SET max_locks_per_transaction = 8192;",  # Change value if needed
-    ], check=True)
+    subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-it",
+            "postgres_container",
+            "psql",
+            "-U",
+            db_user,
+            "-d",
+            db_name,
+            "-c",
+            "ALTER SYSTEM SET max_locks_per_transaction = 8192;",  # Change value if needed
+        ],
+        check=True,
+    )
     print("max_locks_per_transaction set successfully.")
 except subprocess.CalledProcessError as e:
     print(f"Error setting max_locks_per_transaction: {e}")
@@ -92,7 +115,7 @@ except subprocess.CalledProcessError as e:
 try:
     subprocess.run(["docker", "restart", "postgres_container"], check=True)
     print("Docker container restarted successfully.")
-    
+
 except subprocess.CalledProcessError as e:
     print(f"Error restarting Docker container: {e}")
     sys.exit(1)
