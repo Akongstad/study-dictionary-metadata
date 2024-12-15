@@ -4,11 +4,13 @@ This repository contains benchmark code used to test performance of DDL function
 The following is an overview of the repositories file structure:
 
 - **study-dictionary-metadata/results/**: The experiment results for each system exported as csv files from an experiment_logs database.
-- **study-dictionary-metadata/src/**: The source code for the experimental setup. Contain data_recorder.py standardizes logging results to the experiment_logs database.
-  main.py contains the code that runs the experiment on a specific datassytem, which includes initializing a connection and creating, altering, and showing table for all the object granularities.
--**study-dictionary-metadata/utils/**: Utilities used throughout the project. Includes brainstorming ideas for approaches to running the experiments, postgres docker instance initialization script, and bash commands for
+
+- **study-dictionary-metadata/src/**: The source code for the experimental setup. Contain data_recorder.py standardizes logging results to the experiment_logs database. main.py contains the code that runs the experiment on a specific datassytem, which includes initializing a connection and creating, altering, and showing table for all the object granularities.
+
+- **study-dictionary-metadata/utils/**: Utilities used throughout the project. Includes brainstorming ideas for approaches to running the experiments, postgres docker instance initialization script, and bash commands for
 
 ### Additional findings and experiences
+
 #### Postrgres Docker setup
 
 ```bash
@@ -56,7 +58,7 @@ Snapshot
 
 #### Duckdb
 
-Exporting 100000 tables to parquet hangs and  causes duckdb to use 50 gb ram.
+Exporting 100000 tables to parquet hangs and causes duckdb to use 50 gb ram.
 It is very easy to export data, but hard to export objects. This is the same for the aother platforms.
 
 ```sql
