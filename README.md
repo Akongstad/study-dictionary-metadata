@@ -7,7 +7,7 @@ The following is an overview of the repositories file structure:
 
 - **study-dictionary-metadata/src/**: The source code for the experimental setup. Contain data_recorder.py standardizes logging results to the experiment_logs database. main.py contains the code that runs the experiment on a specific datassytem, which includes initializing a connection and creating, altering, and showing table for all the object granularities.
 
-- **study-dictionary-metadata/utils/**: Utilities used throughout the project. Includes brainstorming ideas for approaches to running the experiments, postgres docker instance initialization script, and bash commands for
+- **study-dictionary-metadata/utils/**: Utilities used throughout the project. Includes brainstorming ideas for approaches to running the experiments, postgres docker instance initialization script, and bash commands for exporting results.
 
 ### Additional findings and experiences
 
